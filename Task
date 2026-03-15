@@ -1,0 +1,46 @@
+# WorldWideView — Phase 1 MVP Task Breakdown
+
+## Planning
+- [/] Explore existing codebase and understand project state
+- [/] Write implementation plan for Phase 1 MVP
+- [ ] Get user approval on implementation plan
+
+## Phase 1: Project Scaffolding
+- [ ] Initialize Next.js + TypeScript project with App Router
+- [ ] Configure CesiumJS integration (Webpack, static assets, SSR bypass)
+- [ ] Set up design system (CSS custom properties, glassmorphism, typography)
+- [ ] Configure Zustand state management
+- [ ] Set up path aliases and project structure
+
+## Phase 2: Core Globe Component
+- [ ] Implement `GlobeView.tsx` — CesiumJS viewer with Google 3D Tiles
+- [ ] Implement `CameraController.ts` — cinematic fly-to, orbit mode, presets
+- [ ] Implement `LayerRenderer.ts` — entity rendering, clustering, progressive disclosure
+- [ ] Implement `TimelineSync.ts` — clock sync, time-window filtering, playback
+
+## Phase 3: Plugin System
+- [ ] Define `PluginTypes.ts` — `WorldPlugin` interface, `GeoEntity`, `LayerConfig`
+- [ ] Implement `PluginManager.ts` — lifecycle, polling, data routing
+- [ ] Implement `PluginRegistry.ts` — static + dynamic registration
+- [ ] Implement `DataBus.ts` — event bus for cross-plugin communication
+- [ ] Implement `CacheLayer.ts` — in-memory + IndexedDB caching
+- [ ] Implement `PollingManager.ts` — per-plugin refresh
+
+## Phase 4: Built-in Plugins (MVP)
+- [ ] Aviation plugin (OpenSky Network)
+- [ ] Maritime plugin (AIS feeds)
+- [ ] Wildfire plugin (NASA FIRMS)
+- [ ] Backend API proxy routes for each plugin
+
+## Phase 5: UI Components
+- [ ] `AppShell.tsx` — full-viewport layout with floating panels
+- [ ] `Header.tsx` — branding, search, region presets, time selector
+- [ ] `LayerPanel.tsx` — toggleable layer list grouped by category
+- [ ] `Timeline.tsx` — horizontal scrubber with playback controls
+- [ ] `IntelPanel.tsx` — entity detail and intelligence sidebar
+- [ ] Global CSS design system (dark mode, glassmorphism, animations)
+
+## Phase 6: Verification
+- [ ] Build verification (`npm run build` + type-check)
+- [ ] Browser verification — globe renders, layers toggle, camera presets work
+- [ ] Manual verification — time scrubbing, responsive layout, API proxies

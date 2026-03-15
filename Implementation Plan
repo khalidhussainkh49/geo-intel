@@ -1,0 +1,250 @@
+# World Wide View — Implementation Plan
+
+A next-generation, open-source geospatial intelligence platform combining **Worldview's cinematic CesiumJS 3D globe** with **Worldmonitor's data-rich ingestion engine**, built around a **modular plugin ecosystem**, and designed for both **community self-hosting** and **commercial SaaS deployment**.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **CesiumJS + Google 3D Tiles (Recommended)**: For a "low cost, fast, and efficient" setup that looks like Bilawal's "Worldview" videos, I recommend **CesiumJS with Google Maps Photorealistic 3D Tiles**. 
+> - **Cost**: Google Provides a **$200/month free credit**, which covers ~33,000 sessions (each session is 3 hours of 3D globe usage). This is essentially **$0 for small-to-medium volume**.
+> - **Efficiency**: CesiumJS is built natively for 3D Tiles and time-dynamic data (CZML), making it the "fastest" path to build the cinematic features you want.
+> - **Alternatives**: MapLibre GL JS is "lighter" for standard maps but lacks the high-end 3D terrain/building polish. Deck.gl is better suited for the dashboard overlays (which we can still integrate into Cesium).
+
+> [!IMPORTANT]
+> **Scope for this bootstrap**: This plan covers **Phase 1 — Foundation/MVP** only. This gets you a working 3D globe app with the plugin architecture, 3 live data layers, a timeline, cinematic camera, and a sidebar intelligence panel. Subsequent phases will be planned after Phase 1 ships.
+
+> [!WARNING]
+> **API keys required**: 
+> - **Google Maps Tile API Key** (Required for Photorealistic 3D Tiles — Includes $200/mo credit).
+> - **OpenSky Network** account (free at [opensky-network.org](https://opensky-network.org)).
+
+
+---
+
+## Proposed Changes
+
+### Project Scaffolding
+
+Summary: Initialize a Next.js (App Router) + TypeScript project with a modular architecture, designed from day one as a plugin ecosystem.
+
+#### [NEW] [package.json](file:///c:/dev/World%20Wide%20View/package.json)
+Root `package.json` with Next.js, React 18, TypeScript, CesiumJS, and Resium. Will include a custom `copy-cesium` script to move static assets to `/public/cesium` for Next.js compatibility.
+
+#### [NEW] [next.config.mjs](file:///c:/dev/World%20Wide%20View/next.config.mjs)
+Next.js config with path aliases, environment variable handling, and specific Webpack exclusions for CesiumJS Node.js dependencies.
+
+#### [NEW] [tsconfig.json](file:///c:/dev/World%20Wide%20View/tsconfig.json)
+TypeScript config with strict mode, path aliases for `@/core`, `@/plugins`, `@/components`.
+
+#### [NEW] [.env.example](file:///c:/dev/World%20Wide%20View/.env.example)
+Template with all required/optional environment variables documented.
+
+---
+
+### Directory Structure
+
+```
+c:\dev\World Wide View\
+├── public/                      # Static assets (including /cesium)
+├── src/
+│   ├── app/                     # Next.js App Router
+│   │   ├── page.tsx             # Main entry (Client component)
+│   │   ├── layout.tsx           # Root layout
+│   │   ├── globals.css          # Global styles
+│   │   └── api/                 # Next.js Route Handlers (Backend)
+│   │       ├── aviation/route.ts# OpenSky proxy
+│   │       ├── maritime/route.ts# AIS proxy
+│   │       └── wildfire/route.ts# NASA FIRMS proxy
+│   ├── core/                    # Core platform code
+│   │   ├── globe/               # CesiumJS globe wrapper (Dynamic Import)
+│   │   │   ├── GlobeView.tsx    # Main 3D globe component
+│   │   │   ├── CameraController.ts  # Cinematic camera system
+│   │   │   ├── LayerRenderer.ts # Renders plugin data on globe
+│   │   │   └── TimelineSync.ts  # Syncs Cesium clock with UI
+│   │   ├── plugins/             # Plugin system
+│   │   │   ├── PluginManager.ts # Plugin lifecycle manager
+│   │   │   ├── PluginTypes.ts   # Plugin interface definitions
+│   │   │   └── PluginRegistry.ts# Registration & discovery
+│   │   ├── data/                # Data management
+│   │   │   ├── DataBus.ts       # Event bus for data flow
+│   │   │   ├── CacheLayer.ts    # In-memory + IndexedDB caching
+│   │   │   └── PollingManager.ts# Manages refresh intervals
+│   │   └── state/               # Global state management
+│   │       └── store.ts         # Zustand store
+│   ├── plugins/                 # Built-in data source plugins
+│   │   ├── aviation/            # OpenSky / ADS-B
+│   │   ├── maritime/            # AIS vessel tracking
+│   │   └── wildfire/            # NASA FIRMS
+│   ├── components/              # UI components
+│   │   ├── layout/              # AppShell, Header, Sidebar
+│   │   ├── panels/              # LayerPanel, IntelPanel, Detail
+│   │   ├── timeline/            # Timeline scrubber
+│   │   └── common/              # Loading, Toast, etc.
+│   └── utils/                   # Helpers
+├── .env.example
+├── package.json
+├── tsconfig.json
+└── next.config.mjs
+```
+
+---
+
+### Core Globe Component
+
+#### [NEW] [GlobeView.tsx](file:///c:/dev/World%20Wide%20View/src/core/globe/GlobeView.tsx)
+- CesiumJS `Viewer` inside React using Resium
+- WGS84 ellipsoid, terrain, imagery layers
+- Request render mode for performance
+- Integrates with `TimelineSync` for time-based filtering
+
+#### [NEW] [CameraController.ts](file:///c:/dev/World%20Wide%20View/src/core/globe/CameraController.ts)
+- Cinematic fly-to animations with easing (Worldview-style smooth transitions)
+- 8 regional presets (Global, Americas, Europe, MENA, Asia, Africa, Oceania, LatAm)
+- Orbit mode for idle/attract state
+- URL state sync (lat, lon, zoom, heading, pitch)
+
+#### [NEW] [LayerRenderer.ts](file:///c:/dev/World%20Wide%20View/src/core/globe/LayerRenderer.ts)
+- Renders plugin data as Cesium entities (points, billboards, polylines, polygons)
+- Smart clustering via `EntityCluster`
+- Progressive disclosure (detail at higher zoom)
+- Color/size coding based on data attributes
+
+#### [NEW] [TimelineSync.ts](file:///c:/dev/World%20Wide%20View/src/core/globe/TimelineSync.ts)
+- Bidirectional sync between Cesium clock and UI timeline
+- Time window filtering (1h, 6h, 24h, 48h, 7d)
+- Playback controls, speed multiplier
+- Notifies plugins of current time window
+
+---
+
+### Plugin System
+
+The heart of the modular architecture. Every data source implements a standard interface.
+
+#### [NEW] [PluginTypes.ts](file:///c:/dev/World%20Wide%20View/src/core/plugins/PluginTypes.ts)
+```typescript
+export interface WorldPlugin {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: 'aviation' | 'maritime' | 'conflict' | 'natural-disaster' | 
+            'infrastructure' | 'cyber' | 'economic' | 'custom';
+  version: string;
+  
+  initialize(context: PluginContext): Promise<void>;
+  destroy(): void;
+  fetch(timeRange: TimeRange): Promise<GeoEntity[]>;
+  getPollingInterval(): number;
+  getLayerConfig(): LayerConfig;
+  renderEntity(entity: GeoEntity): CesiumEntityOptions;
+  
+  // Optional UI hooks
+  getSidebarComponent?(): React.ComponentType;
+  getDetailComponent?(): React.ComponentType<{ entity: GeoEntity }>;
+}
+```
+
+#### [NEW] [PluginManager.ts](file:///c:/dev/World%20Wide%20View/src/core/plugins/PluginManager.ts)
+- Plugin lifecycle (register, initialize, enable, disable, destroy)
+- Routes data from plugins → `LayerRenderer`
+- Manages polling per plugin
+- Emits events via `DataBus`
+
+#### [NEW] [PluginRegistry.ts](file:///c:/dev/World%20Wide%20View/src/core/plugins/PluginRegistry.ts)
+- Static registry of built-in plugins + dynamic registration API
+
+---
+
+### Built-in Plugins (3 for MVP)
+
+#### [NEW] Aviation — [src/plugins/aviation/](file:///c:/dev/World%20Wide%20View/src/plugins/aviation/)
+- **Source**: OpenSky Network REST API
+- **Rendering**: Aircraft billboards with heading rotation, altitude coloring
+- **Polling**: 10s | **Backend proxy**: `/api/aviation`
+
+#### [NEW] Maritime — [src/plugins/maritime/](file:///c:/dev/World%20Wide%20View/src/plugins/maritime/)
+- **Source**: Public AIS feeds
+- **Rendering**: Ship icons, color-coded by vessel type
+- **Polling**: 60s | **Backend proxy**: `/api/maritime`
+
+#### [NEW] Wildfire — [src/plugins/wildfire/](file:///c:/dev/World%20Wide%20View/src/plugins/wildfire/)
+- **Source**: NASA FIRMS (VIIRS thermal hotspots)
+- **Rendering**: Heat-colored point clusters (FRP intensity)
+- **Polling**: 5min | **Backend proxy**: `/api/wildfire`
+
+---
+
+### UI Components
+
+Dark, cinematic, premium interface — glassmorphism panels floating over the globe.
+
+#### [NEW] [AppShell.tsx](file:///c:/dev/World%20Wide%20View/src/components/layout/AppShell.tsx)
+Full-viewport layout with globe as background, floating glassmorphism header, collapsible sidebars, bottom timeline.
+
+#### [NEW] [Header.tsx](file:///c:/dev/World%20Wide%20View/src/components/layout/Header.tsx)
+Branding, Cmd+K search, region presets, time window selector, settings.
+
+#### [NEW] [LayerPanel.tsx](file:///c:/dev/World%20Wide%20View/src/components/panels/LayerPanel.tsx)
+Toggleable plugin layers grouped by category with entity counts.
+
+#### [NEW] [Timeline.tsx](file:///c:/dev/World%20Wide%20View/src/components/timeline/Timeline.tsx)
+Horizontal time scrubber, playback controls, event density sparkline.
+
+#### [NEW] [index.css](file:///c:/dev/World%20Wide%20View/src/styles/index.css)
+Dark-mode-first design system: deep navy/charcoal palette, glassmorphism, Inter + JetBrains Mono typography, smooth micro-animations.
+
+---
+
+### Backend API (Next.js Route Handlers)
+
+#### [NEW] [src/app/api/](file:///c:/dev/World%20Wide%20View/src/app/api/)
+Next.js Route Handlers utilizing Web Standard Request/Response APIs. Handles rate limiting, server-side data fetching (proxying), and caching (via Next.js `fetch` cache or in-memory). This replaces the need for a separate Express server.
+
+#### [NEW] Route files
+- `src/app/api/aviation/route.ts` — OpenSky proxy
+- `src/app/api/maritime/route.ts` — AIS proxy
+- `src/app/api/wildfire/route.ts` — NASA FIRMS proxy
+
+---
+
+### State Management
+
+#### [NEW] [store.ts](file:///c:/dev/World%20Wide%20View/src/core/state/store.ts)
+Zustand store with slices: `globe`, `layers`, `timeline`, `ui`, `data`.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+**Build verification:**
+```bash
+cd "c:\dev\World Wide View"
+npm run build
+```
+
+**Type checking:**
+```bash
+cd "c:\dev\World Wide View"
+npx tsc --noEmit
+```
+
+### Browser Verification
+1. Open `http://localhost:5173` → CesiumJS globe renders with terrain, header/sidebar/timeline visible
+2. Enable aviation layer → aircraft icons appear, clicking shows detail
+3. Enable wildfire layer → fire hotspots render as colored points
+4. Scrub timeline → data filters by time window
+5. Click region presets → smooth cinematic fly-to animations
+
+### Manual Verification
+1. Run `npm run dev` — starts the Next.js integrated development server
+2. Verify 3D globe renders with terrain and satellite imagery (ensuring SSR is properly disabled for the globe component)
+3. Toggle layers via layer panel
+4. Drag timeline to filter events
+5. Test camera preset fly-tos
+6. Resize browser — panels collapse gracefully
+
+> [!TIP]
+> First run requires `VITE_CESIUM_TOKEN` in `.env` (free from [cesium.com/ion](https://cesium.com/ion)). App shows a warning if missing but still renders a basic globe.
