@@ -30,18 +30,18 @@ import type {
     CesiumEntityOptions,
     FilterDefinition,
 } from "@/core/plugins/PluginTypes";
-import { CustomsCheckpointDetail } from "./CustomsCheckpointDetail";
+import { CustomsCheckpointDetail } from "./Customscheckpointdetail";
 
 export class CustomsCheckpointsPlugin implements WorldPlugin {
-    id          = "customs-checkpoints";
-    name        = "Customs Checkpoints";
+    id = "customs-checkpoints";
+    name = "Customs Checkpoints";
     description = "Fixed posts, scanner gates, weighbridges & border gates";
-    icon        = ShieldCheck;
-    category    = "infrastructure" as const;
-    version     = "1.0.0";
+    icon = ShieldCheck;
+    category = "infrastructure" as const;
+    version = "1.0.0";
 
-    async initialize(_ctx: PluginContext): Promise<void> {}
-    destroy(): void {}
+    async initialize(_ctx: PluginContext): Promise<void> { }
+    destroy(): void { }
 
     async fetch(_timeRange: TimeRange): Promise<GeoEntity[]> {
         return [];
@@ -76,12 +76,12 @@ export class CustomsCheckpointsPlugin implements WorldPlugin {
                 type: "select",
                 propertyKey: "type",
                 options: [
-                    { value: "fixed",        label: "Fixed Post" },
-                    { value: "mobile",       label: "Mobile / Patrol" },
+                    { value: "fixed", label: "Fixed Post" },
+                    { value: "mobile", label: "Mobile / Patrol" },
                     { value: "scanner-gate", label: "Scanner Gate" },
-                    { value: "weighbridge",  label: "Weighbridge" },
-                    { value: "border-gate",  label: "Border Gate" },
-                    { value: "port-gate",    label: "Port Gate" },
+                    { value: "weighbridge", label: "Weighbridge" },
+                    { value: "border-gate", label: "Border Gate" },
+                    { value: "port-gate", label: "Port Gate" },
                 ],
             },
             {
