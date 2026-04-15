@@ -17,6 +17,8 @@ import { applyFilters } from "@/core/filters/filterEngine";
 import { subscribeToCameraPresets } from "./CameraController";
 import { setupInteractionHandlers } from "./InteractionHandler";
 import { useBorders } from "./useBorders";
+import { useCustomsOffices } from "@/plugins/customs_office/useCustomsOffices";
+import { useCustomsCheckpoints } from "@/plugins/customs-checkpoints/Usecustomscheckpoints";
 import { initPrimitiveCollections, AnimatableItem } from "./EntityRenderer";
 import { handleEntitySelection, cleanupTrail } from "./SelectionHandler";
 import { useImageryManager } from "./useImageryManager";
@@ -46,6 +48,8 @@ export default function GlobeView() {
     const layers = useStore((s) => s.layers);
     const selectedEntity = useStore((s) => s.selectedEntity);
     const showLabels = layers["borders"]?.enabled ?? false;
+    const showOffices = layers["customs-offices"]?.enabled??false;
+    const showCheckpoints = layers["customs-checkpoints"]?.enabled ?? false;
     const sceneSettings = {
         showFps: useStore((s) => s.mapConfig.showFps),
         resolutionScale: useStore((s) => s.mapConfig.resolutionScale),
@@ -76,6 +80,8 @@ export default function GlobeView() {
     // Imagery & Scene Management Hooks
     useImageryManager(viewerRef.current);
     useBorders(viewerRef.current, showLabels);
+    useCustomsOffices(viewerRef.current,showOffices)
+    useCustomsCheckpoints(viewerRef.current, showCheckpoints);
 
     // UI/Interaction Hooks
     useSelectionAnchor(viewerRef.current, viewerReady, selectedEntity, selectionEntityRef, animatablesMapRef);

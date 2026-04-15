@@ -9,13 +9,13 @@ import { SearchBar } from "./SearchBar";
 
 const REGIONS = [
     { id: "global", label: "Global", icon: Globe },
-    { id: "americas", label: "Americas", icon: Globe },
-    { id: "europe", label: "Europe", icon: Globe },
-    { id: "mena", label: "MENA", icon: Globe },
-    { id: "asiaPacific", label: "Asia", icon: Globe },
-    { id: "africa", label: "Africa", icon: Globe },
-    { id: "oceania", label: "Oceania", icon: Globe },
-    { id: "arctic", label: "Arctic", icon: Globe },
+    // { id: "americas", label: "Americas", icon: Globe },
+    // { id: "europe", label: "Europe", icon: Globe },
+    // { id: "mena", label: "MENA", icon: Globe },
+    // { id: "asiaPacific", label: "Asia", icon: Globe },
+    { id: "africa", label: "Africa", icon: Globe }
+    // { id: "oceania", label: "Oceania", icon: Globe },
+    // { id: "arctic", label: "Arctic", icon: Globe },
 ];
 
 const TIME_WINDOWS = ["1h", "6h", "24h", "48h", "7d"] as const;
@@ -53,7 +53,7 @@ export function Header() {
         <header className="header glass-panel">
             <div className="header__brand">
                 <div>
-                    <div className="header__logo">NCS GEO INTELLIGENCE</div>
+                    <div className="header__logo">GEO INTELLIGENCE</div>
                     <div className="header__subtitle">Geospatial Intelligence</div>
                 </div>
                 {/* Search Bar moved here to prevent dropdown clipping */}

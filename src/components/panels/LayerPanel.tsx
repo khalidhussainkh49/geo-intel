@@ -7,6 +7,7 @@ import { pluginManager } from "@/core/plugins/PluginManager";
 import { ImageryPicker } from "./ImageryPicker";
 import { PluginIcon } from "@/components/common/PluginIcon";
 import { FavoritesTab } from "./FavoritesTab";
+import { GeoNewsExportButton } from "@/plugins/geo-news/GeoNewsExportPanel";
 
 
 export function LayerPanel() {
@@ -136,6 +137,12 @@ export function LayerPanel() {
                                             className={`layer-item__toggle ${isEnabled ? "layer-item__toggle--on" : ""
                                                 }`}
                                         />
+                                        {/* this is where gravity added the export button for geo-news */}
+                                        {managed.plugin.id === "geo-news" && (
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                                <GeoNewsExportButton />
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

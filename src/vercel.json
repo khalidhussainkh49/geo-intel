@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/geo-news/poll",
+      "schedule": "*/1 * * * *"
+    }
+  ]
+}
