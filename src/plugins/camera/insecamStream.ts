@@ -12,7 +12,8 @@ export function parseInsecamCamera(cam: any, index: number): GeoEntity {
         properties: {
             ...cam,
             stream: cam.image,
-            preview_url: cam.image,
+            //preview_url: cam.image,
+            preview_url: `/api/proxy/image?url=${encodeURIComponent(cam.image)}`,
             categories: cam.manufacturer ? [cam.manufacturer] : [],
         },
     };

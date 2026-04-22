@@ -72,8 +72,11 @@ export class CameraPlugin implements WorldPlugin {
 
     private async loadUrlSource(settings: any): Promise<void> {
         if (!settings.customUrl) return;
-        let url = settings.customUrl;
-        if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
+        let url = settings.customUrl.trim();
+        if (!/^https?:\/\//i.test(url)) {
+            throw new Error("URL must include http:// or https:// explicitly");
+        }
+        // if (!/^[a-zA-Z]+:\/\//i.test(url)) url = `https://${url}`;
         const data = await SmartFetcher.fetchJson(url);
         if (Array.isArray(data)) {
             this.sourceBuckets["url"] = data.map((c, i) => mapRawCamera(c, i, "url"));
