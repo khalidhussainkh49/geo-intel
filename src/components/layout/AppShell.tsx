@@ -21,10 +21,10 @@ import { PanelToggleArrows } from "@/components/layout/PanelToggleArrows";
 import { FloatingVideoManager } from "@/components/video/FloatingVideoManager";
 import dynamic from "next/dynamic";
 
-import { CustomsOfficesPlugin }     from "@/plugins/customs_office";
+import { CustomsOfficesPlugin } from "@/plugins/customs_office";
 import { CustomsCheckpointsPlugin } from "@/plugins/customs-checkpoints";
-import { GeoNewsPlugin }            from "@/plugins/geo-news";                      // ← NEW
-import { GeoNewsAlertOverlay }      from "@/plugins/geo-news/GeoNewsAlertOverlay";  // ← NEW
+import { GeoNewsPlugin } from "@/plugins/geo-news";                      // ← NEW
+import { GeoNewsAlertOverlay } from "@/plugins/geo-news/GeoNewsAlertOverlay";  // ← NEW
 
 
 // A small functional component strictly for subscribing to non-rendering state/events
