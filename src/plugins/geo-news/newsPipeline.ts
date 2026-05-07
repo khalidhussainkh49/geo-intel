@@ -22,7 +22,7 @@
 import { ALL_SOURCES, type NewsSource } from "./newsSources";
 import { fetchRss, fetchAcled, type RssItem, type AcledEvent } from "./rssParser";
 import { geocodeText } from "./nigeriaLocations";
-import { saveArticles, filterNewIds } from "./newsDb";
+import { saveArticles, filterNewIds, getRecentTitles } from "./newsDb";
 import { classifyArticles, classifySingle, classifyByKeyword } from "./llmclassifier";
 import type { RawNewsArticle } from "./geoNewsTypes";
 import type { AlertCategory, AlertSeverity } from "@/core/state/alertsSlice";
@@ -56,6 +56,51 @@ export function makeId(url: string): string {
         h = (Math.imul(31, h) + url.charCodeAt(i)) | 0;
     }
     return `gn-${(h >>> 0).toString(36)}`;
+}
+
+/**
+ * Normalises a news title for similarity comparison.
+ * Removes common prefixes, punctuation, and extra whitespace.
+ */
+export function normalizeTitle(title: string): string {
+    return title
+        .toLowerCase()
+        // Remove common news prefixes
+        .replace(/^(breaking|just in|exclusive|report|update|news alert|flash|breaking news|live update|breaking update)[:\s-]+/i, "")
+        // Remove non-alphanumeric (keep spaces)
+        .replace(/[^a-z0-9\s]/g, "")
+        // Collapse multiple spaces
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+/**
+ * Calculates string similarity using Sørensen–Dice coefficient.
+ * Returns a value between 0 (no similarity) and 1 (identical).
+ */
+export function calculateSimilarity(str1: string, str2: string): number {
+    const s1 = normalizeTitle(str1);
+    const s2 = normalizeTitle(str2);
+
+    if (s1 === s2) return 1.0;
+    if (s1.length < 2 || s2.length < 2) return 0;
+
+    const bigrams1 = new Set<string>();
+    for (let i = 0; i < s1.length - 1; i++) {
+        bigrams1.add(s1.substring(i, i + 2));
+    }
+
+    const bigrams2 = new Set<string>();
+    for (let i = 0; i < s2.length - 1; i++) {
+        bigrams2.add(s2.substring(i, i + 2));
+    }
+
+    let intersection = 0;
+    for (const bigram of bigrams1) {
+        if (bigrams2.has(bigram)) intersection++;
+    }
+
+    return (2 * intersection) / (bigrams1.size + bigrams2.size);
 }
 
 // ─── RSS item → unclassified article stub ─────────────────────
@@ -227,11 +272,25 @@ export async function runNewsPipeline(options: {
     }
 
     // ── Step 4: Deduplicate within batch ──────────────────────
-    const seen = new Map<string, ArticleStub>();
+    // First by ID/URL
+    const seenById = new Map<string, ArticleStub>();
     for (const stub of allStubs) {
-        if (!seen.has(stub.id)) seen.set(stub.id, stub);
+        if (!seenById.has(stub.id)) seenById.set(stub.id, stub);
     }
-    const uniqueStubs = [...seen.values()];
+    const uniqueStubsById = [...seenById.values()];
+
+    // Then by similarity (cross-agency)
+    const uniqueStubs: ArticleStub[] = [];
+    const SIMILARITY_THRESHOLD = 0.85;
+
+    for (const stub of uniqueStubsById) {
+        const isDuplicate = uniqueStubs.some(existing =>
+            calculateSimilarity(stub.title, existing.title) >= SIMILARITY_THRESHOLD
+        );
+        if (!isDuplicate) {
+            uniqueStubs.push(stub);
+        }
+    }
 
     result.total = uniqueStubs.length;
 
@@ -241,9 +300,23 @@ export async function runNewsPipeline(options: {
     let stubsToClassify = uniqueStubs;
 
     if (saveToDb && uniqueStubs.length > 0) {
+        // 5a: Exact ID match
         const allIds = uniqueStubs.map(s => s.id);
         const newIds = new Set(await filterNewIds(allIds));
-        stubsToClassify = uniqueStubs.filter(s => newIds.has(s.id));
+        let filteredStubs = uniqueStubs.filter(s => newIds.has(s.id));
+
+        // 5b: Similarity match against recent DB articles
+        const recentArticles = await getRecentTitles(24);
+        if (recentArticles.length > 0) {
+            filteredStubs = filteredStubs.filter(stub => {
+                const isTooSimilar = recentArticles.some(existing =>
+                    calculateSimilarity(stub.title, existing.title) >= SIMILARITY_THRESHOLD
+                );
+                return !isTooSimilar;
+            });
+        }
+
+        stubsToClassify = filteredStubs;
         result.skipped = uniqueStubs.length - stubsToClassify.length;
     }
 
