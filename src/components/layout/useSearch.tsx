@@ -173,25 +173,36 @@ export function useSearch() {
         } else if (result.type === "country") {
             setSelectedEntity(null);
             try {
-                const res = await fetch(`/api/places/details?place_id=${result.id}`, {
+                const res = await fetch(`/api/places/details?place_id=${result.id}&name=${encodeURIComponent(result.label)}`, {
                     headers: buildUserKeyHeaders(),
                 });
                 if (res.ok) {
                     const data = await res.json();
                     if (data.lat && data.lon) {
-                        const isCity = data.types?.includes("locality");
-                        console.log("isCity", isCity);
-                        const distance = isCity ? 50000 : 5000000;
-                        const maxPitch = isCity ? -50 : -70;
+                        const types = data.types || [];
+                        const isCity = types.includes("locality") || types.includes("administrative_area_level_2") || types.includes("city");
+                        const isCountry = types.includes("country");
+
+                        let distance = 100000; // 100km default
+                        let pitch = -45;
+
+                        if (isCountry) {
+                            distance = 2500000; // 2500km for countries
+                            pitch = -89;
+                        } else if (isCity) {
+                            distance = 20000; // 20km for cities
+                            pitch = -35;
+                        }
+
                         dataBus.emit("cameraGoTo", {
                             lat: data.lat,
                             lon: data.lon,
                             alt: 0,
                             distance: distance,
-                            maxPitch,
+                            pitch: pitch,
                             heading: 0
                         });
-                        setCameraPosition(data.lat, data.lon, distance);
+                        setCameraPosition(data.lat, data.lon, distance, 0, pitch);
                     }
                 }
             } catch (err) {
