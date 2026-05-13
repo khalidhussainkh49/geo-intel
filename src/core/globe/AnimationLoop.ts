@@ -24,6 +24,7 @@ const scratchDisplacement = new Cartesian3();
 const scratchNorth = new Cartesian3();
 const scratchEast = new Cartesian3();
 const scratchVelocity = new Cartesian3();
+const scratchOffset = new Cartesian3();
 const scratchSphere = new BoundingSphere(new Cartesian3(), 100); // 100m radius roughly
 const scratchNorthPole = new Cartesian3(0, 0, 1);
 const scratchSurfaceNormal = new Cartesian3();
@@ -62,12 +63,22 @@ export function createUpdateLoop(
         // Extract camera culling volume for this frame
         cullingVolume = cam.frustum.computeCullingVolume(cam.positionWC, cam.directionWC, cam.upWC);
 
+        // 0. Identify if any clustered group should be fanned out
+        const hoveredEntityId = hoveredEntityIdRef.current;
+        let fanOutGroupId: string[] | undefined;
+        if (hoveredEntityId) {
+            const hoveredItem = animatables.find(a => a.entity.id === hoveredEntityId);
+            if (hoveredItem?.coordinateGroup && hoveredItem.coordinateGroup.length > 1) {
+                fanOutGroupId = hoveredItem.coordinateGroup;
+            }
+        }
+
         for (let i = 0; i < animatables.length; i++) {
             const item = animatables[i];
             const { primitive, entity, posRef } = item;
             const isModel = item.options.type === "model";
             const isSelected = state.selectedEntity?.id === entity.id;
-            const isHovered = hoveredEntityIdRef.current === entity.id;
+            const isHovered = hoveredEntityId === entity.id;
 
             // Skip if model hasn't loaded yet
             if (!primitive) continue;
@@ -103,8 +114,10 @@ export function createUpdateLoop(
 
             if (primitive.show !== true) primitive.show = true;
 
-            // 3. Position extrapolation
-            if (entity.timestamp && entity.speed !== undefined && entity.heading !== undefined) {
+            // 3. Position extrapolation & Fan-out handling
+            const inFanOutGroup = fanOutGroupId?.includes(entity.id);
+
+            if (entity.speed !== undefined && entity.speed > 0 && entity.timestamp && entity.heading !== undefined) {
                 if (isFullUpdate || isSelected || isHovered) {
                     extrapolatePosition(item, nowMs);
                     // Update model transform after extrapolation
@@ -112,6 +125,34 @@ export function createUpdateLoop(
                         updateModelTransform(item, item.posRef, entity.heading);
                     }
                 }
+            } else if (inFanOutGroup && fanOutGroupId) {
+                // Special case for static overlapping points: Fan them out on hover
+                const count = fanOutGroupId.length;
+                const index = item.groupIndex ?? 0;
+                const angle = (index / count) * Math.PI * 2;
+
+                // Calculate pixel-space offset converted to world space roughly
+                // Scale distance based on zoom
+                const zoomFactor = Math.max(1, distanceToPoint / 100000);
+                const offsetDistance = 25 * zoomFactor;
+
+                Ellipsoid.WGS84.geodeticSurfaceNormal(item.actualPosition!, scratchSurfaceNormal);
+                Cartesian3.cross(scratchNorthPole, scratchSurfaceNormal, scratchNorth);
+                Cartesian3.normalize(scratchNorth, scratchNorth);
+                Cartesian3.cross(scratchSurfaceNormal, scratchNorth, scratchEast);
+
+                Cartesian3.multiplyByScalar(scratchNorth, Math.cos(angle) * offsetDistance, scratchNorth);
+                Cartesian3.multiplyByScalar(scratchEast, Math.sin(angle) * offsetDistance, scratchEast);
+                Cartesian3.add(scratchNorth, scratchEast, scratchOffset);
+                Cartesian3.add(item.actualPosition!, scratchOffset, posRef);
+
+                primitive.position = posRef;
+                if (item.labelPrimitive) item.labelPrimitive.position = posRef;
+            } else if (item.actualPosition && !Cartesian3.equals(primitive.position, item.actualPosition)) {
+                // Reset to original position if fanned out previously
+                Cartesian3.clone(item.actualPosition, posRef);
+                primitive.position = posRef;
+                if (item.labelPrimitive) item.labelPrimitive.position = posRef;
             }
 
             // 4. Highlight styling (skip for models — they use silhouette instead)
