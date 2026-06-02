@@ -29,6 +29,12 @@ export interface AnimatableItem {
     lastHighlightState?: 'normal' | 'hovered' | 'selected';
     /** Set by LOD hook — when true, billboard is hidden because a 3D model replaced it */
     _modelPromoted?: boolean;
+    /** Group of entities at the exact same coordinate */
+    coordinateGroup?: string[];
+    /** Index within the coordinate group */
+    groupIndex?: number;
+    /** The original un-offset position */
+    actualPosition?: Cartesian3;
 }
 
 /**
@@ -108,7 +114,8 @@ function renderSingleEntity(
     points: PointPrimitiveCollection,
     billboards: BillboardCollection,
     labels: LabelCollection,
-    currentIds: Set<string>
+    currentIds: Set<string>,
+    coordinateGroups?: Map<string, string[]>
 ) {
     currentIds.add(entity.id);
     const position = Cartesian3.fromDegrees(entity.longitude, entity.latitude, entity.altitude || 0);
@@ -116,6 +123,11 @@ function renderSingleEntity(
     const clickId = { _wwvEntity: entity };
 
     let item = existingMap.get(entity.id);
+
+    // If this entity belongs to a coordinate group, identify its position in the group
+    const coordKey = `${entity.latitude.toFixed(6)},${entity.longitude.toFixed(6)}`;
+    const group = coordinateGroups?.get(coordKey);
+    const groupIndex = group?.indexOf(entity.id) ?? -1;
 
     if (item && item.options.type !== options.type) {
         // Re-create if type changed
@@ -136,13 +148,19 @@ function renderSingleEntity(
         item.entity = entity;
         item.options = options;
         item.posRef = position;
+        item.actualPosition = Cartesian3.clone(position);
+        item.coordinateGroup = group;
+        item.groupIndex = groupIndex;
         item.basePosition = undefined;
         item.velocityVector = undefined;
         item.baseColor = color;
         item.baseOutlineColor = options.outlineColor ? Color.fromCssColorString(options.outlineColor) : Color.BLACK;
 
         if (!Color.equals(item.primitive.color, color)) item.primitive.color = color;
-        if (!Cartesian3.equals(item.primitive.position, position)) item.primitive.position = position;
+        // Don't update position directly here if it's in a group, let the animation loop handle the fan-out
+        if (!group || group.length <= 1) {
+            if (!Cartesian3.equals(item.primitive.position, position)) item.primitive.position = position;
+        }
 
         if (options.iconUrl) {
             if (item.primitive.image !== options.iconUrl) item.primitive.image = options.iconUrl;
@@ -183,6 +201,9 @@ function renderSingleEntity(
             labelPrimitive: undefined, // Lazy
             entity,
             posRef: position,
+            actualPosition: Cartesian3.clone(position),
+            coordinateGroup: group,
+            groupIndex,
             options,
             baseColor: color,
             baseOutlineColor: options.outlineColor ? Color.fromCssColorString(options.outlineColor) : Color.BLACK,
@@ -230,13 +251,21 @@ export async function renderEntitiesChunked(
 
     const currentIds = new Set<string>();
 
+    // Detect coordinate groups (multiple entities at same location)
+    const coordinateGroups = new Map<string, string[]>();
+    for (const { entity } of visibleEntities) {
+        const key = `${entity.latitude.toFixed(6)},${entity.longitude.toFixed(6)}`;
+        if (!coordinateGroups.has(key)) coordinateGroups.set(key, []);
+        coordinateGroups.get(key)!.push(entity.id);
+    }
+
     await globalChunkedProcessor.processChunked(
         visibleEntities,
         500, // Process 500 items per chunk
         (chunk) => {
             if (viewer.isDestroyed()) return;
             for (let i = 0; i < chunk.length; i++) {
-                renderSingleEntity(chunk[i], existingMap, points, billboards, labels, currentIds);
+                renderSingleEntity(chunk[i], existingMap, points, billboards, labels, currentIds, coordinateGroups);
             }
         }
     );
@@ -262,8 +291,16 @@ export function renderEntities(
 
     const currentIds = new Set<string>();
 
+    // Detect coordinate groups
+    const coordinateGroups = new Map<string, string[]>();
+    for (const { entity } of visibleEntities) {
+        const key = `${entity.latitude.toFixed(6)},${entity.longitude.toFixed(6)}`;
+        if (!coordinateGroups.has(key)) coordinateGroups.set(key, []);
+        coordinateGroups.get(key)!.push(entity.id);
+    }
+
     for (const item of visibleEntities) {
-        renderSingleEntity(item, existingMap, points, billboards, labels, currentIds);
+        renderSingleEntity(item, existingMap, points, billboards, labels, currentIds, coordinateGroups);
     }
 
     cleanupRemovedEntities(existingMap, currentIds, points, billboards, labels);

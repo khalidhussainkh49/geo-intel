@@ -68,14 +68,17 @@ export async function GET(request: Request) {
 
         const osmData = await osmRes.json();
 
-        const predictions = osmData.map((item: any) => ({
-            description: item.display_name,
-            placeId: `osm-${item.place_id}`, // Prefixing to avoid ID collisions
-            mainText: item.name || item.display_name.split(',')[0],
-            secondaryText: item.display_name.split(',').slice(1).join(',').trim(),
-            types: [item.type || "region"],
-            source: "osm"
-        }));
+        const predictions = osmData.map((item: any) => {
+            const osmTypeChar = item.osm_type ? item.osm_type.charAt(0).toUpperCase() : 'N';
+            return {
+                description: item.display_name,
+                placeId: `osm-${osmTypeChar}${item.osm_id}`, // Prefixing with type for Nominatim lookup
+                mainText: item.name || item.display_name.split(',')[0],
+                secondaryText: item.display_name.split(',').slice(1).join(',').trim(),
+                types: [item.type || "region"],
+                source: "osm"
+            };
+        });
 
         const result = { predictions };
         cache.set(cacheKey, { data: result, expiresAt: Date.now() + TTL_MS });

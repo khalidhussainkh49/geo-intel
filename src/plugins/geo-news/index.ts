@@ -54,16 +54,16 @@ const SEVERITY_COLOR: Record<AlertSeverity, string> = {
 };
 
 const CATEGORY_SIZE: Record<AlertCategory, number> = {
-    terrorism:        12,
-    banditry:         10,
-    kidnapping:       11,
-    flooding:         10,
-    "communal-clash":  9,
-    "armed-robbery":   8,
-    "military-op":     8,
-    protest:           7,
-    accident:          7,
-    other:             7,
+    terrorism:        20,
+    banditry:         18,
+    kidnapping:       19,
+    flooding:         18,
+    "communal-clash":  17,
+    "armed-robbery":   16,
+    "military-op":     16,
+    protest:           14,
+    accident:          14,
+    other:             14,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────

@@ -335,6 +335,29 @@ export async function saveArticles(
 }
 
 /**
+ * Fetches titles and IDs of articles from the last N hours.
+ * Used for similarity-based deduplication.
+ */
+export async function getRecentTitles(hours = 24): Promise<{ id: string, title: string }[]> {
+    const result = await withRetry("getRecentTitles", async () => {
+        const sb = makeClient();
+        if (!sb) throw new Error("Supabase client could not be created");
+
+        const cutoff = new Date(Date.now() - hours * 3_600_000).toISOString();
+
+        const { data, error } = await sb
+            .from("geo_news_articles")
+            .select("id, title")
+            .gte("published_at", cutoff);
+
+        if (error) throw new Error(error.message);
+        return data ?? [];
+    });
+
+    return result ?? [];
+}
+
+/**
  * Return only the IDs from the given list that are NOT already in the DB.
  * Used by the pipeline to skip re-processing known articles.
  */

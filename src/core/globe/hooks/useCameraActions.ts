@@ -23,7 +23,7 @@ export function useCameraActions(viewer: CesiumViewer | null, isReady: boolean) 
             viewer.camera.lookAtTransform(Matrix4.IDENTITY);
         });
 
-        const unsubGoTo = dataBus.on("cameraGoTo", ({ lat, lon, alt, distance, maxPitch, heading }) => {
+        const unsubGoTo = dataBus.on("cameraGoTo", ({ lat, lon, alt, distance, maxPitch, heading, pitch: requestedPitch }) => {
             // Add a slight delay to avoid any immediate state-change cancellations from React
             setTimeout(() => {
                 if (!viewer || viewer.isDestroyed()) return;
@@ -37,10 +37,10 @@ export function useCameraActions(viewer: CesiumViewer | null, isReady: boolean) 
                 // Enforce maximum pitch (default -30 degrees)
                 const targetLocalUp = Ellipsoid.WGS84.geodeticSurfaceNormal(targetPosition, new Cartesian3());
                 const pitchDot = Cartesian3.dot(direction, targetLocalUp);
-                let pitch = Math.asin(pitchDot);
+                let pitch = requestedPitch !== undefined ? CesiumMath.toRadians(requestedPitch) : Math.asin(pitchDot);
                 const maxPitchRad = CesiumMath.toRadians(maxPitch !== undefined ? maxPitch : -30);
 
-                if (pitch > maxPitchRad) {
+                if (requestedPitch === undefined && pitch > maxPitchRad) {
                     pitch = maxPitchRad;
                     // Extract the horizontal component of the direction to reconstruct it
                     const vertComponent = Cartesian3.multiplyByScalar(targetLocalUp, pitchDot, new Cartesian3());

@@ -55,8 +55,8 @@ export async function GET(request: Request) {
 
         if (isOsmId) {
             // If it's a direct OSM ID from our autocomplete fallback
-            const numericId = placeId.replace("osm-", "");
-            const osmUrl = `https://nominatim.openstreetmap.org/lookup?osm_ids=R${numericId},W${numericId},N${numericId}&format=json`;
+            const osmRef = placeId.replace("osm-", "");
+            const osmUrl = `https://nominatim.openstreetmap.org/lookup?osm_ids=${osmRef}&format=json`;
             const osmRes = await fetch(osmUrl, { headers: { "User-Agent": "NCS-GeoIntel/1.0 (contact@worldwideview.com)" } });
             if (!osmRes.ok) throw new Error(await osmRes.text());
             const list = await osmRes.json();
